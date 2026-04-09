@@ -1,0 +1,57 @@
+# ── Node / React ─────────────────────────────────────────────────────────────
+node_modules/
+client/dist/
+client/.env
+client/.env.local
+client/.env.production
+*.lock
+
+# ── Go ────────────────────────────────────────────────────────────────────────
+server/*.exe
+server/certychain
+server/certychain.exe
+*.test
+
+# ── Python / AI ───────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+ai_service/venv/
+ai_service/.venv/
+ai_service/model/trained_nb.pkl
+ai_service/model/trained_mlp.pkl
+ai_service/model/trained_visual.pkl
+*.pkl
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+server/.env
+
+# ── Blockchain ────────────────────────────────────────────────────────────────
+blockchain/node_modules/
+blockchain/artifacts/
+blockchain/cache/
+blockchain/.openzeppelin/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Docker files included (for reference), but not required for GitHub deploy
+# .dockerignore files kept
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Dataset (large binary files - gunakan Git LFS jika perlu) ─────────────────
+# dataset/     # uncomment jika dataset terlalu besar
