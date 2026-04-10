@@ -21,7 +21,7 @@
 | Admin: Issue sertifikat + upload file | ✅ |
 | Admin: User management (suspend/delete) | ✅ |
 | Anchoring di Ethereum (Hardhat/Ganache) | ✅ |
-| Dataset Appskep Indonesia (57 sertifikat) | ✅ |
+| Dataset Appskep Indonesia  | ✅ |
 
 ---
 
