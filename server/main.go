@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -771,9 +772,22 @@ func userVerifyUploadHandler(c *gin.Context) {
 	var cert models.Certificate
 	found := db.Where("hash = ?", hashHex).First(&cert).Error == nil
 
-	// AI analysis on text content
-	nbScore, cnnScore, aiScore, _, isDummy := callAIService(contentStr)
-	_ = isDummy
+	var nbScore, cnnScore, aiScore float64
+	var isDummy bool
+	
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
+		// Image analysis
+		var status string
+		nbScore, cnnScore, aiScore, status, _ = callAIImage(fileBytes, fileHeader.Filename)
+		isDummy = false
+		if status == "Unknown" {
+			isDummy = true
+		}
+	} else {
+		// Text analysis
+		nbScore, cnnScore, aiScore, _, isDummy = callAIService(contentStr)
+	}
 
 	// Save verification record
 	resultDetail := fmt.Sprintf(
@@ -877,12 +891,16 @@ func adminIssueCertUploadHandler(c *gin.Context) {
 	defer f.Close()
 	fileBytes, _ := io.ReadAll(f)
 
-	// Determine content text
-	content := strings.TrimSpace(string(fileBytes))
-	if !isValidUTF8Text(content) || len(content) < 5 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "File must contain readable text content (UTF-8)"})
-		return
+	contentToStore := ""
+	var hashBytes [32]byte
+	if isValidUTF8Text(strings.TrimSpace(string(fileBytes))) && len(strings.TrimSpace(string(fileBytes))) >= 10 {
+		contentToStore = strings.TrimSpace(string(fileBytes))
+		hashBytes = sha256.Sum256([]byte(contentToStore))
+	} else {
+		contentToStore = "[BINARY CERTIFICATE DATA]"
+		hashBytes = sha256.Sum256(fileBytes)
 	}
+	hashHex := fmt.Sprintf("0x%x", hashBytes)
 
 	// Check duplicate
 	var existing models.Certificate
@@ -890,9 +908,6 @@ func adminIssueCertUploadHandler(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "Certificate number already exists"})
 		return
 	}
-
-	hashBytes := sha256.Sum256([]byte(content))
-	hashHex := fmt.Sprintf("0x%x", hashBytes)
 
 	adminID := c.GetUint("user_id")
 	cert := models.Certificate{
@@ -902,7 +917,7 @@ func adminIssueCertUploadHandler(c *gin.Context) {
 		Title:             title,
 		Institution:       institution,
 		IssueDate:         issueDate,
-		Content:           content,
+		Content:           contentToStore,
 		Hash:              hashHex,
 		IssuedByID:        adminID,
 	}
@@ -1121,35 +1136,43 @@ func adminDeleteUserHandler(c *gin.Context) {
 }
 
 // ─── callAIImage: forward an image file to AI service ─────────────────────────
-func callAIImage(fileBytes []byte, filename string) (aiScore float64, status string, detail string) {
+func callAIImage(fileBytes []byte, filename string) (nbScore float64, cnnScore float64, aiScore float64, status string, detail string) {
 	if aiServiceURL == "" {
-		return 0.5, "Unknown", "AI service not configured"
+		return 0.5, 0.5, 0.5, "Unknown", "AI service not configured"
 	}
 	boundary := "certychainboundary12345"
 	body := &bytes.Buffer{}
 	body.WriteString("--" + boundary + "\r\n")
+	mimeType := "image/jpeg"
+	if strings.HasSuffix(strings.ToLower(filename), ".png") {
+		mimeType = "image/png"
+	}
 	body.WriteString(fmt.Sprintf("Content-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\n", filename))
-	body.WriteString("Content-Type: application/octet-stream\r\n\r\n")
+	body.WriteString(fmt.Sprintf("Content-Type: %s\r\n\r\n", mimeType))
 	body.Write(fileBytes)
 	body.WriteString("\r\n--" + boundary + "--\r\n")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("POST", aiServiceURL+"/predict/image", body)
 	if err != nil {
-		return 0.5, "Unknown", "Request creation failed"
+		return 0.5, 0.5, 0.5, "Unknown", "Request creation failed"
 	}
 	req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("⚠ AI image service error: %v", err)
-		return 0.5, "Unknown", "AI image service unreachable"
+		log.Printf("⚠ AI image service err: %v", err)
+		return 0.5, 0.5, 0.5, "Unknown", "AI image service unreachable"
 	}
 	defer resp.Body.Close()
 	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		log.Printf("⚠ AI image service HTTP %d: %s", resp.StatusCode, string(respBody))
+		return 0.5, 0.5, 0.5, "Unknown", "AI image service rejected request"
+	}
 	var aiResp aiResponse
 	if err := json.Unmarshal(respBody, &aiResp); err != nil {
-		return 0.5, "Unknown", "AI response parse error"
+		return 0.5, 0.5, 0.5, "Unknown", "AI response parse error"
 	}
-	return aiResp.Confidence, aiResp.Status, aiResp.Detail
+	return aiResp.NaiveBayesScore, aiResp.CNNScore, aiResp.Confidence, aiResp.Status, aiResp.Detail
 }

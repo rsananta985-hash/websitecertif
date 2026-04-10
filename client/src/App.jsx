@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { UsersList, HistoryPage } from './components.jsx'
+
 
 
 const API = 'http://localhost:8080/api'
@@ -351,9 +351,9 @@ function LoginPage({onLogin, onSwitch}) {
             <BlockchainAnimation/>
           </div>
 
-          <div className="auth-left-tagline">
-            Sistem Verifikasi Sertifikat<br/>
-            <strong>berbasis Blockchain & AI</strong>
+          <div className="auth-left-tagline" style={{marginTop: '0.75rem', marginBottom: '1.25rem', lineHeight: '1.6', padding: '0 1rem'}}>
+            <span style={{fontSize: '0.95rem', opacity: 0.9}}>Sistem Verifikasi Sertifikat Digital</span><br/>
+            <strong style={{fontSize: '1rem', color: '#ffffff', letterSpacing: '0.01em'}}>Berbasis Blockchain Menggunakan Algoritma Naive Bayes dan AI Detection</strong>
           </div>
 
           <div className="auth-left-features">
@@ -678,11 +678,11 @@ function IssueCert({api, t}) {
                   ) : (
                     <div><div style={{fontSize:'1.5rem',marginBottom:'0.35rem'}}>☁️</div>
                     <div style={{fontWeight:600,color:'var(--text-secondary)',fontSize:'0.82rem'}}>{dragOver?'Drop file here':'Drag & drop or click to browse'}</div>
-                    <div style={{fontSize:'0.71rem',color:'var(--text-muted)'}}>Supports .txt files — content becomes the certificate hash source</div>
+                    <div style={{fontSize:'0.71rem',color:'var(--text-muted)'}}>Supports documents (.txt/.pdf) or images (.jpg/.png) — binary hash becomes the source</div>
                     </div>
                   )}
                 </div>
-                <input ref={fileRef} type="file" accept=".txt,.pdf,.doc,.docx" style={{display:'none'}} onChange={e=>{if(e.target.files[0])setFile(e.target.files[0])}}/>
+                <input ref={fileRef} type="file" accept=".txt,.pdf,.doc,.docx,.jpg,.jpeg,.png" style={{display:'none'}} onChange={e=>{if(e.target.files[0])setFile(e.target.files[0])}}/>
               </div>
             )}
 
@@ -1047,16 +1047,15 @@ function VerifyPage({api, t}) {
                       <div style={{fontWeight:600,color:'var(--text-secondary)',fontSize:'0.85rem',marginBottom:'0.25rem'}}>
                         {dragOver ? 'Drop the file here' : 'Drag & drop or click to browse'}
                       </div>
-                      <div style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>Supports .txt, .pdf, .doc, .docx — max 10MB</div>
+                      <div style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>Supports .txt, .pdf, .jpg, .png — max 10MB</div>
                     </div>
                   )}
                 </div>
-                <input ref={fileRef} type="file" accept=".txt,.pdf,.doc,.docx,.rtf"
+                <input ref={fileRef} type="file" accept=".txt,.pdf,.doc,.docx,.rtf,.jpg,.jpeg,.png"
                   style={{display:'none'}}
                   onChange={e => { if(e.target.files[0]) setFile(e.target.files[0]) }}/>
                 <div style={{fontSize:'0.72rem',color:'var(--text-muted)'}}>
-                  💡 <b>Tip:</b> Upload the <b>.txt</b> file with the certificate's text content for an exact match.
-                  PDF hashes are matched against the binary content stored during issuance.
+                  💡 <b>Tip:</b> Upload a <b>.txt</b> or <b>.pdf</b> for blockchain hash match, or upload an image (<b>.png/.jpg</b>) for visual AI verification!
                 </div>
               </div>
             )}
