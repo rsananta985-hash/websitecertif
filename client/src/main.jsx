@@ -3,13 +3,17 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App, { PublicVerify } from './App.jsx'
 
-// Simple routing: if path is /public or has ?cert= param, show public verify
+import LandingPage from './LandingPage.jsx'
+
 const path = window.location.pathname
 const params = new URLSearchParams(window.location.search)
-const isPublic = path.startsWith('/public') || params.has('cert') || params.has('hash')
+
+const isPublicVerify = path.startsWith('/public') || params.has('cert') || params.has('hash')
+const isApp = path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/dashboard') || path.startsWith('/admin')
+const isLanding = path === '/'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    {isPublic ? <PublicVerify /> : <App />}
+    {isPublicVerify ? <PublicVerify /> : (isApp ? <App /> : <LandingPage />)}
   </StrictMode>,
 )

@@ -395,9 +395,12 @@ function LoginPage({onLogin, onSwitch}) {
             </button>
           </form>
 
-          <p style={{marginTop:'1.5rem',textAlign:'center',fontSize:'0.8rem',color:'var(--text-muted)'}}>
-            Belum punya akun? <span onClick={onSwitch} style={{color:'var(--blue-600)',cursor:'pointer',fontWeight:600}}>Daftar</span>
-          </p>
+          <div style={{marginTop:'1.5rem',textAlign:'center'}}>
+            <p style={{fontSize:'0.8rem',color:'var(--text-muted)', marginBottom: '0.5rem'}}>
+              Belum punya akun? <span onClick={onSwitch} style={{color:'var(--blue-600)',cursor:'pointer',fontWeight:600}}>Daftar</span>
+            </p>
+            <a href="/" style={{color:'var(--text-secondary)', textDecoration:'none', fontSize:'0.75rem', fontWeight:600}}>← Kembali ke Beranda</a>
+          </div>
         </div>
       </div>
     </div>
@@ -442,7 +445,12 @@ function RegisterPage({onLogin, onSwitch}) {
             {loading?<><span className="spinner"/> Creating account...</>:'Create Account'}
           </button>
         </form>
-        <p style={{marginTop:'1.5rem',textAlign:'center',fontSize:'0.8rem',color:'var(--text-muted)'}}>Already have an account? <span onClick={onSwitch} style={{color:'var(--blue)',cursor:'pointer',fontWeight:600}}>Sign in</span></p>
+        <div style={{marginTop:'1.5rem',textAlign:'center'}}>
+          <p style={{fontSize:'0.8rem',color:'var(--text-muted)', marginBottom:'0.5rem'}}>
+            Sudah punya akun? <span onClick={onSwitch} style={{color:'var(--blue-600)',cursor:'pointer',fontWeight:600}}>Masuk</span>
+          </p>
+          <a href="/" style={{color:'var(--text-secondary)', textDecoration:'none', fontSize:'0.75rem', fontWeight:600}}>← Kembali ke Beranda</a>
+        </div>
       </div>
     </div>
   )
@@ -450,7 +458,10 @@ function RegisterPage({onLogin, onSwitch}) {
 
 /* ─── Sidebar ────────────────────────────────────────────────────────────── */
 function Sidebar({page, setPage, nav, user, hp, onLogout}) {
-  const secs = [...new Set(nav.map(n=>n.sec))]
+  const modString = user.allowed_modules || (user.role==='admin' ? 'dashboard,issue,certificates,verifications,users' : 'dashboard,verify,history,profile')
+  const allowed = modString.split(',')
+  const actualNav = nav.filter(n => allowed.includes(n.key))
+  const secs = [...new Set(actualNav.map(n=>n.sec))]
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -471,7 +482,7 @@ function Sidebar({page, setPage, nav, user, hp, onLogout}) {
         {secs.map(s=>(
           <div key={s}>
             <div className="nav-section-label">{s}</div>
-            {nav.filter(n=>n.sec===s).map(n=>(
+            {actualNav.filter(n=>n.sec===s).map(n=>(
               <div key={n.key} className={`nav-item ${page===n.key?'active':''}`} onClick={()=>setPage(n.key)}>
                 <span className="nav-icon"><I n={n.ico} s={16}/></span>
                 {n.label}
@@ -849,31 +860,128 @@ function AllVerifs({api, t}) {
 function UsersList({api, t}) {
   const [data, setData] = useState([])
   const [loading, setL] = useState(true)
-  useEffect(()=>{ fetch(`${api}/admin/users`,{headers:H(t)}).then(r=>r.json()).then(d=>{setData(d.users||[]);setL(false)}) },[api,t])
+  const [editUser, setEditUser] = useState(null)
+  
+  const load = () => { setL(true); fetch(`${api}/admin/users`,{headers:H(t)}).then(r=>r.json()).then(d=>{setData(d.users||[]);setL(false)}) }
+  useEffect(load, [api,t])
+
+  const del = async (id) => {
+    if(!confirm("Are you sure you want to delete this user?")) return
+    await fetch(`${api}/admin/users/${id}`, {method:'DELETE', headers:H(t)})
+    load()
+  }
+
+  const saveEdit = async (e) => {
+    e.preventDefault()
+    const payload = {...editUser, allowed_modules: editUser.modArr.join(',')}
+    await fetch(`${api}/admin/users/${editUser.id}`, {
+      method:'PUT', headers:H(t), body:JSON.stringify(payload)
+    })
+    setEditUser(null)
+    load()
+  }
+
+  const allMods = [{k:'dashboard',l:'Dashboard'}, {k:'issue',l:'Terbitkan Sertifikat'}, {k:'certificates',l:'Data Sertifikat'}, {k:'verifications',l:'Log Verifikasi'}, {k:'users',l:'Manajemen User'}, {k:'verify',l:'Verifikasi (User)'}, {k:'history',l:'Riwayat (User)'}, {k:'profile',l:'Profil'}]
+
   return (
     <div>
       <div className="page-header">
         <div className="page-header-eyebrow">User Management</div>
-        <h1 className="page-header-title">Registered Users</h1>
-        <p className="page-header-sub">All user accounts registered in the system.</p>
+        <h1 className="page-header-title">Registered Users & Roles</h1>
+        <p className="page-header-sub">Manage roles, permissions, and delete user accounts.</p>
       </div>
       <div className="table-wrapper">
         <div className="table-header"><span className="table-title">{data.length} Users</span></div>
         {loading?<div className="loading-overlay"><span className="spinner"/> Loading...</div>:
         data.length===0?<Blank text="No users registered yet."/>:
-        <table>
-          <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Registered</th></tr></thead>
+        <table style={{minWidth:'800px'}}>
+          <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Allowed Modules</th><th>Registered</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
           <tbody>{data.map((u,i)=>(
             <tr key={u.id}>
               <td style={{color:'var(--text-muted)'}}>{i+1}</td>
-              <td style={{fontWeight:600}}>{u.name}</td>
+              <td style={{fontWeight:600}}>{u.name}<br/><span style={{fontSize:'0.75rem',color:u.is_active?'var(--green)':'var(--red)'}}>{u.is_active?'Active':'Inactive'}</span></td>
               <td style={{color:'var(--text-secondary)',fontSize:'0.82rem'}}>{u.email}</td>
               <td><span className="badge badge-blockchain" style={{textTransform:'capitalize'}}>{u.role}</span></td>
+              <td style={{color:'var(--text-muted)',fontSize:'0.75rem',maxWidth:'150px'}}>{(u.allowed_modules||'semua default').split(',').join(', ')}</td>
               <td style={{color:'var(--text-muted)',fontSize:'0.78rem'}}>{fmt(u.created_at)}</td>
+              <td style={{textAlign:'right'}}>
+                 <div style={{display:'flex', gap:'0.5rem', justifyContent:'flex-end'}}>
+                   <button className="btn" style={{padding:'6px 12px',fontSize:'0.75rem',background:'var(--blue-50)',color:'var(--blue-700)',border:'1px solid var(--blue-200)'}} onClick={()=>setEditUser({...u, modArr: (u.allowed_modules||(u.role==='admin'?'dashboard,issue,certificates,verifications,users':'dashboard,verify,history,profile')).split(',')})}>Atur Akses</button>
+                   <button className="btn" style={{padding:'6px 12px',fontSize:'0.75rem',background:'var(--red-50)',color:'var(--red-700)',border:'1px solid var(--red-200)'}} onClick={()=>del(u.id)}>Hapus</button>
+                 </div>
+              </td>
             </tr>
           ))}</tbody>
         </table>}
       </div>
+
+      {editUser && (
+        <div className="modal-overlay" style={{zIndex:9999}}>
+          <div className="modal-content" style={{maxWidth:'500px'}}>
+            <div className="modal-header">
+              <h3 style={{margin:0}}>Edit Hak Akses User</h3>
+              <button className="btn" style={{padding:'4px',background:'transparent',color:'var(--text-muted)'}} onClick={()=>setEditUser(null)}>✕</button>
+            </div>
+            <form onSubmit={saveEdit} style={{padding:'1.5rem'}}>
+              <div className="form-group">
+                <label className="form-label">Name</label>
+                <input className="form-input" value={editUser.name} onChange={e=>setEditUser({...editUser,name:e.target.value})} required/>
+              </div>
+              <div className="form-group" style={{display:'flex', gap:'1rem'}}>
+                 <div style={{flex:1}}>
+                   <label className="form-label">Role</label>
+                   <select className="form-input" value={editUser.role} onChange={e=>setEditUser({...editUser,role:e.target.value})}>
+                     <option value="user">User Biasa</option>
+                     <option value="admin">Administrator</option>
+                   </select>
+                 </div>
+                 <div style={{flex:1, display:'flex', alignItems:'flex-end'}}>
+                   <label style={{
+                      display:'flex', alignItems:'center', gap:'0.5rem', cursor:'pointer', fontWeight:600,
+                      padding:'0.65rem 1rem', borderRadius:'8px', border:`1px solid ${editUser.is_active?'var(--green-200)':'var(--red-200)'}`,
+                      background: editUser.is_active ? 'var(--green-50)' : 'var(--red-50)',
+                      color: editUser.is_active ? 'var(--green-700)' : 'var(--red-700)',
+                      width: '100%', justifyContent:'center', transition: 'all 0.2s', fontSize:'0.85rem'
+                   }}>
+                     <input type="checkbox" style={{display:'none'}} checked={editUser.is_active} onChange={e=>setEditUser({...editUser,is_active:e.target.checked})}/>
+                     {editUser.is_active ? '● Akun Aktif (Dapat Login)' : '○ Akun Suspended'}
+                   </label>
+                 </div>
+              </div>
+              
+              <div className="form-group" style={{marginTop:'2rem'}}>
+                <label className="form-label" style={{marginBottom:'1rem'}}>Hak Akses Modul Sistem</label>
+                <div style={{display:'flex', flexWrap:'wrap', gap:'0.6rem'}}>
+                   {allMods.map(m=>{
+                     const active = editUser.modArr.includes(m.k)
+                     return (
+                     <label key={m.k} style={{
+                        display:'flex', alignItems:'center', gap:'0.4rem', fontSize:'0.8rem', cursor:'pointer',
+                        padding:'0.5rem 0.8rem', borderRadius:'99px', border:`1px solid ${active?'var(--blue-400)':'var(--border)'}`,
+                        background: active ? 'var(--blue-50)' : 'transparent',
+                        color: active ? 'var(--blue-700)' : 'var(--text-secondary)',
+                        fontWeight: active ? 600 : 500,
+                        transition: 'all 0.2s'
+                     }}>
+                       <input type="checkbox" style={{display:'none'}} checked={active} onChange={e=>{
+                          if(e.target.checked) setEditUser({...editUser, modArr: [...editUser.modArr, m.k]})
+                          else setEditUser({...editUser, modArr: editUser.modArr.filter(x=>x!==m.k)})
+                       }}/>
+                       {active ? <I n="verify" s={14}/> : <div style={{width:14,height:14,borderRadius:'50%',border:'1px solid var(--border)'}}/>}
+                       {m.l}
+                     </label>
+                   )})}
+                </div>
+              </div>
+
+              <div style={{display:'flex', gap:'1rem', marginTop:'2rem'}}>
+                <button type="button" className="btn btn-outline" style={{flex:1}} onClick={()=>setEditUser(null)}>Batal</button>
+                <button type="submit" className="btn btn-primary" style={{flex:1}}>Simpan Perubahan</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

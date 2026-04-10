@@ -345,7 +345,7 @@ func registerHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Account created successfully",
 		"token":   token,
-		"user":    gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.Role},
+		"user":    gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.Role, "allowed_modules": user.AllowedModules},
 	})
 }
 
@@ -378,7 +378,7 @@ func loginHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
 		"token":   token,
-		"user":    gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.Role},
+		"user":    gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.Role, "allowed_modules": user.AllowedModules},
 	})
 }
 
@@ -390,7 +390,7 @@ func meHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.Role, "created_at": user.CreatedAt}})
+	c.JSON(http.StatusOK, gin.H{"user": gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.Role, "allowed_modules": user.AllowedModules, "created_at": user.CreatedAt}})
 }
 
 // ─── Public: Verify by Hash ───────────────────────────────────────────────────
@@ -1075,7 +1075,7 @@ func adminGetUserHandler(c *gin.Context) {
 	})
 }
 
-// ─── Admin: Update User (toggle active/change name) ───────────────────────────
+// ─── Admin: Update User (toggle active/change name/role/modules) ───────────────────────────
 func adminUpdateUserHandler(c *gin.Context) {
 	id := c.Param("id")
 	var user models.User
@@ -1083,14 +1083,16 @@ func adminUpdateUserHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-	// Prevent modifying the admin account
-	if user.Role == "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot modify admin account"})
+	// Prevent modifying the root admin account
+	if user.ID == 1 && c.GetUint("user_id") != 1 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot modify root admin account"})
 		return
 	}
 	var input struct {
-		Name     string `json:"name"`
-		IsActive *bool  `json:"is_active"`
+		Name           string  `json:"name"`
+		IsActive       *bool   `json:"is_active"`
+		Role           string  `json:"role"`
+		AllowedModules *string `json:"allowed_modules"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -1103,14 +1105,23 @@ func adminUpdateUserHandler(c *gin.Context) {
 	if input.IsActive != nil {
 		updates["is_active"] = *input.IsActive
 	}
+	if input.Role != "" {
+		updates["role"] = input.Role
+	}
+	if input.AllowedModules != nil {
+		updates["allowed_modules"] = *input.AllowedModules
+	}
+
 	if len(updates) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
 		return
 	}
 	db.Model(&user).Updates(updates)
+	db.First(&user, id) // reload
+	
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User updated successfully",
-		"user":    gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.Role, "is_active": user.IsActive},
+		"user":    gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": user.Role, "is_active": user.IsActive, "allowed_modules": user.AllowedModules},
 	})
 }
 

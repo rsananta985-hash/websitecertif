@@ -11,9 +11,10 @@ type User struct {
 	ID        uint           `gorm:"primaryKey"               json:"id"`
 	Name      string         `gorm:"not null"                 json:"name"`
 	Email     string         `gorm:"uniqueIndex;not null"     json:"email"`
-	Password  string         `gorm:"not null"                 json:"-"`
-	Role      string         `gorm:"default:'user';not null"  json:"role"` // 'admin' | 'user'
-	IsActive  bool           `gorm:"default:true;not null"    json:"is_active"`
+	Password       string         `gorm:"not null"                 json:"-"`
+	Role           string         `gorm:"default:'user';not null"  json:"role"` // 'admin' | 'user'
+	AllowedModules string         `gorm:"default:'dashboard,verify,history,profile';not null" json:"allowed_modules"`
+	IsActive       bool           `gorm:"default:true;not null"    json:"is_active"`
 	CreatedAt time.Time      `                                json:"created_at"`
 	UpdatedAt time.Time      `                                json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index"                    json:"-"`
